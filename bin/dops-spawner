@@ -1,0 +1,80 @@
+#!/bin/bash -eu
+set -o pipefail
+
+PATH=/usr/local/bin:/bin:/usr/bin
+
+main() {
+  local cluster=$1
+
+  # Create directory
+  mkdir $cluster
+  cd $cluster
+
+  # Create Dockerfile
+  echo 'FROM krkr/dops
+
+COPY . /ops
+' > Dockerfile
+
+  # Create Makefile
+  echo -e '
+go:
+\tdocker run --rm -ti -v $$(pwd):/ops dops/'$1'
+
+build:
+\tdocker build -t dops/'$1' .
+
+create_machine:
+\tdocker-machine create \
+\t\t-d openstack \
+\t\t--openstack-flavor-name="vps-ssd-1" \
+\t\t--openstack-image-name="Ubuntu 16.04" \
+\t\t--openstack-net-name="Ext-Net" \
+\t\t--openstack-ssh-user="ubuntu" \
+\t\t-engine-install-url=https://experimental.docker.com \
+\t\t\tn1
+
+' > Makefile
+
+  # Prepare machine/ dir
+  /bin/mkdir machine
+
+  setup_os_creds
+
+  # Init git repository
+  git init
+  git add Dockerfile machine/
+
+  echo "------------"
+  echo "Ready to start!"
+  echo
+  echo "Do: \"cd $1 && make build go\""
+}
+
+create_os_user() {
+  echo '{
+    "description": "dops-admin-'$RANDOM'",
+    "service": "'$project'"
+  }' | ovhapi POST /cloud/project/${project}/user
+}
+
+setup_os_creds() {
+  echo "Get cloud project..."
+  project=$(ovhapi GET /cloud/project | jq -r .[0])
+  echo "cloud/project: $project"
+  #echo "Continue? (y/n)"; read p; [[ "$p" != "y" ]] && exit 0
+
+  echo "Create OpenStack user..."
+  user=$(create_os_user)
+  userId=$(jq -r .id <<< $user)
+  password=$(jq -r .password <<< $user)
+
+  echo "Get RC file of OpenStack..."
+  ovhapi GET /cloud/project/${project}/user/${userId}/openrc?region=BHS1 \
+    | jq -r .content \
+      | grep -v -E "(^#|^\s*$|^echo|^if|^r)" \
+      | sed -e 's|^export ||' -e 's|"||g' -e "s|\$OS_PASSWORD_INPUT|$password|" \
+    > machine/secrets.env
+}
+
+main "$@"
