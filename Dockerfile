@@ -1,8 +1,9 @@
-FROM alpine:3.4
+FROM krkr/ovhapi-go-cli
 
-RUN apk --no-cache add bash jq curl openssl git
+RUN apk --update add bash git zsh make jq
+
 COPY bin /usr/local/bin
 
-COPY bashrc /root/.bashrc
+COPY zshrc /root/.zshrc
 
-ENTRYPOINT ["/usr/local/bin/dops-spawner"]
+ENTRYPOINT ["zsh"]
