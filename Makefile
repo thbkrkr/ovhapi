@@ -2,7 +2,10 @@ dops-creator:
 	docker run --rm -ti \
 		--env-file ovh.env \
 		-v $$(pwd):/play --workdir /play \
-		krkr/ovhapi dops-creator
+		krkr/ovhapi-repl dops-creator
 
 dev:
-	@doo d -v $$(pwd):/play --workdir /play --entrypoint bash
+	docker run --rm -ti \
+		--env-file qaas.env \
+		-v $$(pwd):/play --workdir /play \
+		krkr/ovhapi-repl

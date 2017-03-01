@@ -1,78 +1,180 @@
+# /cloud
 
-ovh_cloud_select_project() {
-  CLOUD_PROJECT_ID=$(ovhapi GET /cloud/project | jq -r '.[0]')
+set -o pipefail
+
+@ovh/cloud/projects() {
+  ovhapi GET /cloud/project | jq .
+}
+
+@ovh/cloud/project/set() {
+  export CLOUD_PROJECT_ID=${1:-$(ovhapi GET /cloud/project | jq -r '.[0]')}
   echo "OK: cloud project $CLOUD_PROJECT_ID selected"
 }
 
-ovh_cloud_list_users_ids() {
-  ovhapi GET /cloud/project/$CLOUD_PROJECT_ID/user | jq -c '.[]' | grep dops | jq -r .id
+@ovh/cloud/project() {
+  declare projectID=${1:-$CLOUD_PROJECT_ID}
+  ovhapi GET /cloud/project/$CLOUD_PROJECT_ID | jq .
 }
 
-ovh_cloud_rm_user() {
-  ovhapi DELETE /cloud/project/$CLOUD_PROJECT_ID/user/$1
+@ovh/cloud/project/storages() {
+  ovhapi GET /cloud/project/$CLOUD_PROJECT_ID/storage | jq .
 }
 
-ovh_queue_list_apps() {
+@ovh/cloud/project/storage() {
+  declare containerID=$1
+  ovhapi GET /cloud/project/$CLOUD_PROJECT_ID/storage/$containerID | jq .
+}
+
+@ovh/cloud/project/user/set() {
+  declare pattern=$1
+  export CLOUD_USER_ID=${1:-$(ovhapi GET /cloud/project/$CLOUD_PROJECT_ID/user | jq -c '.[]' | grep "$pattern" | head -1 | jq -r '.id')}
+  echo "OK: cloud user $CLOUD_USER_ID selected"
+}
+
+@ovh/cloud/project/_/user() {
+  declare userID=${1:-$CLOUD_USER_ID}
+  ovhapi GET /cloud/project/$CLOUD_PROJECT_ID/user/$userID | jq .
+}
+
+@ovh/cloud/users() {
+  ovhapi GET /cloud/project/$CLOUD_PROJECT_ID/user | jq .
+}
+
+@ovh/cloud/user/delete() {
+  declare userID=${1:-$CLOUD_USER_ID}
+  ovhapi DELETE /cloud/project/$CLOUD_PROJECT_ID/user/$userID
+}
+
+@ovh/cloud/user/openrc() {
+  declare userID=$1 region=${2:-GRA1}
+ ovhapi GET "/cloud/project/$CLOUD_PROJECT_ID/user/$userID/openrc?region=$region"
+}
+
+@ovh/cloud/user/token() {
+  declare userID=$1
+  echo '{"password":"'$2'"}' \
+    | ovhapi POST /cloud/project/$CLOUD_PROJECT_ID/user/$userID/token | jq -r '{"X-Auth-Token":.["X-Auth-Token"]}'
+}
+
+# /dbaas/queue
+
+# @ovh/queue/apps/ids
+@ovh/queue/apps/ids() {
   while read ID; do
     ovhapi GET /dbaas/queue/$ID
   done < <(ovhapi GET /dbaas/queue | jq -r '.[]')
 }
 
-ovh_dbaas_queue_list_apps() {
+# @ovh/queue/apps
+@ovh/queue/apps() {
   while read ID; do
     ovhapi GET /dbaas/queue/$ID
   done < <(ovhapi GET /dbaas/queue | jq -r '.[]')
 }
 
-ovh_dbaas_timeseries_list_projects() {
+# @ovh/metrics/projects
+@ovh/metrics/projects() {
   while read ID; do
     ovhapi GET /dbaas/timeseries/$ID
     export TS_PROJECT_ID=$ID
   done < <(ovhapi GET /dbaas/timeseries | jq -r '.[]')
 }
 
-ovh_dbaas_timeseries_list_keys() {
+# /dbaas/timeseries
+
+# @ovh/metrics/keys
+@ovh/metrics/keys() {
   while read ID; do
     ovhapi GET /dbaas/timeseries/$TS_PROJECT_ID/keys/$ID
   done < <(ovhapi GET /dbaas/timeseries/$TS_PROJECT_ID/keys | jq -r '.[]')
 }
 
-# ovh_sd_set_rescue_mode <serverId> <email>
-ovh_sd_set_rescue_mode() {
+# /dedicated/server
+
+# @ovh/dedicated/servers/ids
+@ovh/dedicated/servers/ids() {
+  ovhapi GET /dedicated/server | jq -r '.[]'
+}
+
+# @ovh/dedicated/servers
+@ovh/dedicated/servers() {
+  while read ID; do
+    ovhapi GET "/dedicated/server/$ID"
+  done < <(ovhapi GET /dedicated/server | jq -r '.[]')
+}
+
+# @ovh/dedicated/server <serverId>
+@ovh/dedicated/server() {
+  declare serverId=$1
+  ovhapi GET "/dedicated/server/$serverId" | jq .
+}
+
+# @ovh/dedicated/server/set-rescue-mode <serverId> <email>
+@ovh/dedicated/server/set-rescue-mode() {
   echo '{"bootId":1122,"rescueMail":"'$2'"}' \
     | ovhapi PUT "/dedicated/server/$1"
 }
 
-# ovh_sd_set_normal_mode <serverId>
-ovh_sd_set_normal_mode() {
+# @dedicated/server/set-normal-mode <serverId>
+@ovh/dedicated/server/set-normal-mode() {
+  declare serverId=$1
   echo '{"bootId":1,"rootDevice":null}' \
-    | ovhapi PUT "/dedicated/server/$1"
+    | ovhapi PUT "/dedicated/server/$serverId"
 }
 
-# ovh_sd_reboot <serverId>
-ovh_sd_reboot() {
+# @dedicated/server/reboot <serverId>
+@ovh/dedicated/server/reboot() {
+  declare serverId=$1
   echo '{}' \
-    | ovhapi POST "/dedicated/server/$1/reboot"
+    | ovhapi POST "/dedicated/server/$serverId/reboot"
 }
 
-ovh_list_templates() {
+# /me/installationTemplate
+
+@ovh/templates() {
   ovhapi GET /me/installationTemplate | jq '.[]'
 }
 
-ovh_list_template_partitions() {
-  ovhapi GET /me/installationTemplate/$1/partitionScheme/default/partition | jq -r '.[]'
+@ovh/templates/partitions() {
+  declare templateId=$1
+  ovhapi GET /me/installationTemplate/$template/partitionScheme/default/partition | jq -r '.[]'
 }
 
-# ovh_get_template <template>
-ovh_get_template() {
-  declare template=$1
+# @ovh/template <template>
+@ovh/template() {
+  declare templateId=$1
   ( for p in $(ovh_list_template_partitions $template | tr '\n' ' ' ); do
     ovhapi GET /me/installationTemplate/$template/partitionScheme/default/partition/$(sed "s|\/|%2F|g" <<< $p) &
   done; wait ) | jq -c .
 }
 
-# ovh_sd_set_reverse <ip> <dns>
-ovh_sd_set_reverse() {
+# /ip
+
+# @ovh/ip/reverse/set <ip> <dns>
+@ovh/ip/reverse/set() {
+  declare ip=$1 dns=$2
   echo '{"ipReverse":"'$1'","reverse":"'$2'"}' \
     | ovhapi POST "/ip/$1/reverse"
+}
+
+# /domain
+
+
+# @ovh/domain <domain>
+@ovh/domain() {
+  declare domain=${1:-}
+  ovhapi GET "/domain/$domain" | jq .
+}
+
+# @ovh/domain/zone <zoneName>
+@ovh/domain/zone() {
+  declare zoneName=${1:-}
+  ovhapi GET "/domain/zone/$zoneName" | jq .
+}
+
+# @ovh/domain/refresh
+@ovh/domain/refresh() {
+  declare zoneName=$1
+  echo '{}' \
+    | ovhapi POST "/domain/zone/$zoneName/refresh" | jq .
 }

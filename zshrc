@@ -1,10 +1,17 @@
 
-# Disable PATH, or not?
-#export PATH=
+ZSH=$HOME/.oh-my-zsh
+#ZSH_THEME="pure-thb"
+
+#CASE_SENSITIVE="true"
+DISABLE_AUTO_UPDATE="true"
+DISABLE_UPDATE_PROMPT="true"
+COMPLETION_WAITING_DOTS="true"
+
+plugins=(history-substring-search)
+source $ZSH/oh-my-zsh.sh
 
 # Prompt
 export PROMPT="%F{cyan}ovhapi%f %F{magenta}>%f "
-#export PS1="\e[36movhapi \e[1m\e[35m>\e[0m\e[39m "
 
 # Aliases
 alias GET='ovhapi GET'
@@ -14,11 +21,19 @@ alias g=GET
 alias post=POST
 alias p=POST
 
+# Strict PATH
+#export PATH=$(which jq):$(which ovhapi)
+
 # Functions
 source /usr/local/bin/__ovh_functions.sh
 
+clear
 echo
-echo "   Hello $(GET /me | jq -r .firstname)!"
+echo Loading...
+firstname=$(GET /me | jq -r .firstname)
+clear
+echo
+echo "   Hello $firstname!"
 echo
 
 # while read cmd; do
@@ -109,3 +124,4 @@ echo
 # enable -n enable
 
 
+[ -f ~/.myzshrc ] && source ~/.myzshrc
