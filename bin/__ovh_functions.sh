@@ -178,3 +178,35 @@ set -o pipefail
   echo '{}' \
     | ovhapi POST "/domain/zone/$zoneName/refresh" | jq .
 }
+
+# /caas/registry
+
+# @ovh/caas/registry <service>
+@ovh/caas/registry() {
+  declare service=${1:-}
+  ovhapi GET "/caas/registry/$service" | jq .
+}
+
+@ovh/caas/registry/set() {
+  export CAAS_REGISTRY_SERVICE_ID=${1:-$(ovhapi GET /caas/registry | jq -r '.[0]')}
+  echo "OK: caaas registry $CAAS_REGISTRY_SERVICE_ID selected"
+}
+
+@ovh/caas/registry/namespaces() {
+  ids="$(ovhapi GET /caas/registry/$CAAS_REGISTRY_SERVICE_ID/namespaces | jq -r '.[]')"
+  for id in "$ids"; do
+    echo ovhapi GET /caas/registry/$CAAS_REGISTRY_SERVICE_ID/namespaces/$ID
+  done
+}
+
+@ovh/caas/registry/namespaces/set() {
+  export CAAS_NAMESPACE_ID=${1:-$(ovhapi GET /caas/registry/$CAAS_REGISTRY_SERVICE_ID/namespaces/$ID | jq -r '.[0]')}
+  echo "OK: caaas namespace $CAAS_NAMESPACE_ID selected"
+}
+
+@ovh/caas/registry/namespaces() {
+  ids=$(ovhapi GET /caas/registry/$CAAS_REGISTRY_SERVICE_ID/namespaces/$CAAS_NAMESPACE_ID | jq -r '.[]')
+  for id in "$ids"; do
+    echo ovhapi GET /caas/registry/$CAAS_REGISTRY_SERVICE_ID/namespaces/$CAAS_NAMESPACE_ID
+  done
+}
