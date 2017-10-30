@@ -14,12 +14,8 @@ source $ZSH/oh-my-zsh.sh
 export PROMPT="%F{cyan}ovhapi%f %F{magenta}>%f "
 
 # Aliases
-alias GET='ovhapi GET'
-alias POST='ovhapi POST'
-alias get=GET
-alias g=GET
-alias post=POST
-alias p=POST
+alias G='ovhapi GET'
+alias P='ovhapi POST'
 
 # Strict PATH
 #export PATH=$(which jq):$(which ovhapi)

@@ -2,6 +2,28 @@
 
 set -o pipefail
 
+ovhapi::ids() {
+  declare url=$1
+  ovhapi GET $url | jq -r '.[]'
+}
+
+ovhapi::list() {
+  declare url=$1
+  (
+    for ID in $(ovhapi GET $url | jq -r '.[]'); do
+      ovhapi GET $url/$ID &
+    done
+    wait
+  ) | jq -s .
+}
+
+ovhapi::first() {
+  declare url=$1
+  ovhapi GET $url | jq -r '.[0]'
+}
+
+# /cloud/project
+
 @ovh/cloud/projects() {
   ovhapi GET /cloud/project | jq .
 }
@@ -209,4 +231,21 @@ set -o pipefail
   for id in "$ids"; do
     echo ovhapi GET /caas/registry/$CAAS_REGISTRY_SERVICE_ID/namespaces/$CAAS_NAMESPACE_ID
   done
+}
+
+# /dbaas/logs
+
+# @ovh/dbaas/logs
+@ovh/dbaas/logs() {
+  declare service=${1:-$LOGS_ID}
+  ovhapi GET "/dbaas/logs/$service" | jq .
+}
+
+@ovh/dbaas/logs/set() {
+  export LOGS_ID=${1:-$(ovhapi GET /dbaas/logs | jq -r '.[0]')}
+  echo "OK: logs $LOGS_ID selected"
+}
+
+@ovh/dbaas/logs/streams() {
+  ovhapi::list /dbaas/logs/$LOGS_ID/output/graylog/stream
 }
